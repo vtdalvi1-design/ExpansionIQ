@@ -102,7 +102,7 @@ def api_health():
     return {"status": "healthy"}
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     index_file = FRONTEND_DIST_PATH / "index.html"
     if index_file.is_file():
@@ -114,7 +114,7 @@ def root():
     }
 
 
-@app.get("/{full_path:path}")
+@app.api_route("/{full_path:path}", methods=["GET", "HEAD"])
 def serve_spa(full_path: str):
     file_path = FRONTEND_DIST_PATH / full_path
     if file_path.is_file():
