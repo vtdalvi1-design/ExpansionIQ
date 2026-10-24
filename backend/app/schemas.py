@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-RetailCategory = Literal["Grocery", "Fashion", "Electronics"]
+RetailCategory = str
 
 
 class ComparisonRequest(BaseModel):
@@ -127,6 +127,114 @@ class ComparisonResponse(BaseModel):
     results: list[CityResult]
     data_status: Literal["available", "no_complete_scores"]
     analysis_id: int
+
+
+class DemoAnalysisRequest(BaseModel):
+    category: RetailCategory
+    business_type: str = Field(min_length=2, max_length=120)
+    budget_inr: float = Field(gt=0, le=100_000_000_000)
+    cities: list[str] = Field(min_length=2, max_length=5)
+    business_model: str = Field(default="Physical retail store", max_length=120)
+    target_customer: str = Field(default="General consumers", max_length=120)
+    floor_area_sqft: float | None = Field(default=None, gt=0, le=10_000_000)
+    expected_monthly_revenue_inr: float | None = Field(default=None, gt=0)
+    monthly_rent_inr: float | None = Field(default=None, gt=0)
+    employee_count: int | None = Field(default=None, ge=1, le=100_000)
+    expected_average_ticket_inr: float | None = Field(default=None, gt=0)
+    expected_customers_per_day: int | None = Field(default=None, ge=1)
+    monthly_operating_expenses_inr: float | None = Field(default=None, gt=0)
+    forecast_start_date: str | None = Field(default=None, max_length=20)
+
+    @field_validator("business_type", "business_model", "target_customer")
+    @classmethod
+    def trim_demo_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("This field cannot be empty.")
+        return normalized
+
+    @field_validator("cities")
+    @classmethod
+    def validate_demo_cities(cls, cities: list[str]) -> list[str]:
+        normalized = [city.strip() for city in cities]
+        if any(not city for city in normalized):
+            raise ValueError("City names cannot be empty.")
+        if len({city.casefold() for city in normalized}) != len(normalized):
+            raise ValueError("City names must be unique.")
+        return normalized
+
+
+class DemoForecastMonth(BaseModel):
+    month: int
+    revenue_inr: float
+    expense_inr: float
+    operating_profit_inr: float
+    cashflow_after_startup_inr: float
+
+
+class DemoCityForecast(BaseModel):
+    city_name: str
+    revenue_basis: str
+    rent_basis: str
+    utilities_basis: str
+    payroll_basis: str
+    cost_of_goods_basis: str
+    marketing_basis: str
+    monthly_revenue_inr: float
+    cost_of_goods_inr: float
+    gross_profit_inr: float
+    rent_inr: float
+    utilities_inr: float
+    payroll_inr: float
+    marketing_inr: float
+    monthly_expenses_inr: float
+    operating_profit_inr: float
+    break_even_revenue_inr: float
+    payback_months: float | None
+    startup_allocation_inr: dict[str, float]
+    scenarios: dict[str, dict[str, float]]
+    projections: list[DemoForecastMonth]
+    startup_capital_required_inr: float = 0.0
+    budget_shortfall_inr: float = 0.0
+    remaining_capital_inr: float = 0.0
+    cash_runway_months: float | None = None
+    break_even_months: float | None = None
+    data_completeness_pct: float = 100.0
+    census_population: int | None = None
+    geonames_population: int | None = None
+    state_name: str | None = None
+    advantages: list[str] = Field(default_factory=list)
+    disadvantages: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    recommendation_text: str = ""
+    is_recommended: bool = False
+
+
+class DemoMapResolution(BaseModel):
+    city_name: str
+    status: Literal["matched", "ambiguous", "unavailable"]
+    match_count: int
+    note: str
+
+
+class DemoAnalysisResponse(BaseModel):
+    analysis_id: int
+    access_token: str | None = None
+    created_at: str
+    category: RetailCategory
+    business_profile: DemoAnalysisRequest
+    results: list[CityResult]
+    forecasts: list[DemoCityForecast]
+    factor_weights: dict[str, float]
+    map_places: list[dict[str, Any]]
+    map_resolutions: list[DemoMapResolution]
+    competitors: list[dict[str, Any]]
+    demo_mode: bool
+    disclaimer: str
+    assumptions: list[str]
+    recommended_city: str | None = None
+    recommendation_reason: str | None = None
+    pdf_report_available: bool = True
 
 
 class ExportRequest(BaseModel):

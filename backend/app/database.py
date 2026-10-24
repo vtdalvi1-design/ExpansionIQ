@@ -95,6 +95,28 @@ def migrate_district_crosswalk_schema(bind=engine) -> None:
         )
 
 
+def migrate_analysis_payload_schema(bind=engine) -> None:
+    with bind.begin() as connection:
+        inspector = inspect(connection)
+        if not inspector.has_table("analysis_runs"):
+            return
+        columns = {
+            column["name"]
+            for column in inspector.get_columns("analysis_runs")
+        }
+        if "analysis_payload" not in columns:
+            connection.execute(
+                text("ALTER TABLE analysis_runs ADD COLUMN analysis_payload JSON")
+            )
+        if "analysis_access_token_hash" not in columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE analysis_runs "
+                    "ADD COLUMN analysis_access_token_hash VARCHAR(64)"
+                )
+            )
+
+
 def get_db():
     db = SessionLocal()
     try:

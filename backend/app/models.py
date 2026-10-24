@@ -81,6 +81,8 @@ class AnalysisRun(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     scenario = Column(JSON, nullable=True)
     is_demo_data = Column(Boolean, nullable=False, default=True)
+    analysis_payload = Column(JSON, nullable=True)
+    analysis_access_token_hash = Column(String(64), nullable=True)
 
 
 class RetailLocation(Base):

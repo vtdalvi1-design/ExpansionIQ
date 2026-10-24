@@ -34,6 +34,7 @@ export default function Settings() {
     useState<MarketFactorInput["source_status"]>("user_provided");
   const [notes, setNotes] = useState("");
   const [records, setRecords] = useState<MarketFactorRecord[]>([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +98,7 @@ export default function Settings() {
     setNotice(null);
     try {
       await api.deleteMarketFactor(record.id);
+      setConfirmDeleteId(null);
       setNotice(`${record.city} ${record.category} record deleted.`);
       await loadRecords();
     } catch (requestError) {
@@ -132,6 +134,11 @@ export default function Settings() {
             <p className="panel-description">
               Values use a 0–100 scale. Saving the same city and category
               updates its existing record.
+            </p>
+            <p className="field-help">
+              On this scale, 0 is least favorable and 100 is most favorable.
+              Leave unavailable factors blank. Values and source-status labels
+              are user-provided and are not independently verified.
             </p>
           </div>
         </div>
@@ -265,14 +272,38 @@ export default function Settings() {
                       .join(" · ")}
                   </small>
                 </div>
-                <button
-                  className="icon-button"
-                  type="button"
-                  aria-label={`Delete ${record.city} ${record.category} record`}
-                  onClick={() => void removeRecord(record)}
-                >
-                  <Trash2 size={16} />
-                </button>
+                {confirmDeleteId === record.id ? (
+                  <div
+                    className="delete-confirmation"
+                    role="group"
+                    aria-label={`Confirm deletion of ${record.city} ${record.category}`}
+                  >
+                    <span role="status">Delete this record?</span>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => void removeRecord(record)}
+                    >
+                      Confirm delete
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label={`Delete ${record.city} ${record.category} record`}
+                    onClick={() => setConfirmDeleteId(record.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </article>
             ))}
           </div>

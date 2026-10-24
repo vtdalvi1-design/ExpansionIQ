@@ -369,3 +369,43 @@ reference. User-provided or unverified factor records remain visible but are
 not ranked. The verified flag is an input assertion, not an automated
 independent source validation. No such category-factor observations are
 currently imported, so the live project database produces no market ranking.
+
+## Clearly labeled demo analysis
+
+The workspace also provides a separate **demo analysis** flow for showcasing
+the product when verified market-factor data is unavailable. It accepts a
+business category, available investment budget, and two to five cities, with
+optional business model, target customer, floor area, expected monthly
+revenue, monthly rent, and employee count.
+
+`POST /api/analyses/demo` creates a persisted demo analysis and
+`GET /api/analyses/{analysis_id}` retrieves it with the bearer access token
+returned by the create request. Existing `analysis_runs` records and columns
+are preserved; startup adds only nullable analysis-payload and token-hash
+columns when missing.
+
+Demo market-factor values are deterministically generated from the city,
+category, and factor, then scored using the existing category weights. These
+values are **synthetic and not AI-generated, observed, or independently
+verified**. Financial outputs are illustrative: monthly revenue defaults to
+12% of the entered budget unless the user supplies an estimate; rent,
+utilities, staffing, gross margin, marketing, and 1% monthly projection growth
+follow assumptions listed in each result. The selected business model and
+customer segment are stored for context but do not change the formulas.
+The interface labels the simulated leader as a demo result, not a real
+recommendation. Do not use these values for investment decisions.
+
+The analysis map uses only exact city matches from the existing GeoNames
+reference records and shows saved competitor records only. It does not invent
+coordinates, store locations, or competitor businesses. Only the
+OpenStreetMap street basemap is configured; satellite imagery is not
+available. The Results view presents executive summary, map, financial
+forecast, market factors, competitor intelligence, location comparison, and a
+feasibility report as sections of the same saved analysis.
+
+This demo flow does not connect to an external AI provider. It requires no AI
+credentials. It is separate from the evidence-based comparison endpoint,
+which continues to leave rankings unavailable when verified factor data is
+missing. The database API is not generally authenticated; the demo retrieval
+route uses a per-analysis bearer token, but the application still requires
+broader authentication and authorization before public deployment.

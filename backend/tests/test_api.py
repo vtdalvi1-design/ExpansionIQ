@@ -5,9 +5,15 @@ os.environ["DATABASE_URL"] = "sqlite://"
 from openpyxl import Workbook
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect as sqlalchemy_inspect
+from sqlalchemy import create_engine, inspect as sqlalchemy_inspect, text
 
-from app.database import Base, SessionLocal, engine, migrate_legacy_schema
+from app.database import (
+    Base,
+    SessionLocal,
+    engine,
+    migrate_analysis_payload_schema,
+    migrate_legacy_schema,
+)
 from app.main import app
 from app.models import (
     AdministrativeBoundary,
@@ -129,6 +135,8 @@ def test_location_routes_are_in_openapi_schema(client):
     assert "/api/datasets" in paths
     assert "/api/geography/audit" in paths
     assert "/api/market-scores/evaluate" in paths
+    assert "/api/analyses/demo" in paths
+    assert "/api/analyses/{analysis_id}" in paths
 
 
 def test_comparison_does_not_use_census_population_as_a_retail_score(client):
@@ -529,6 +537,248 @@ def test_market_factor_cannot_be_marked_verified_without_source(client):
     assert response.status_code == 422
 
 
+def test_demo_analysis_is_deterministic_persisted_and_retrievable(client):
+    payload = {
+        "category": "Grocery",
+        "business_type": "Neighborhood grocery store",
+        "budget_inr": 2_500_000,
+        "cities": ["Pune", "Mumbai"],
+        "business_model": "Physical retail store",
+        "target_customer": "Urban households",
+        "floor_area_sqft": 1200,
+        "employee_count": 7,
+    }
+
+    first = client.post("/api/analyses/demo", json=payload)
+    assert first.status_code == 200
+    first_body = first.json()
+    assert first_body["demo_mode"] is True
+    assert "DEMO SIMULATION" in first_body["disclaimer"]
+    assert len(first_body["results"]) == 2
+    assert all(
+        result["source_status"] == "simulated"
+        for result in first_body["results"]
+    )
+    assert all(
+        result["total_score"] is not None
+        for result in first_body["results"]
+    )
+    assert len(first_body["forecasts"]) == 2
+    assert len(first_body["forecasts"][0]["projections"]) == 12
+    forecast = first_body["forecasts"][0]
+    assert forecast["gross_profit_inr"] == pytest.approx(
+        forecast["monthly_revenue_inr"] - forecast["cost_of_goods_inr"]
+    )
+    assert forecast["projections"][0]["cashflow_after_startup_inr"] == pytest.approx(
+        -payload["budget_inr"]
+        + forecast["projections"][0]["operating_profit_inr"]
+    )
+    assert forecast["projections"][-1]["cashflow_after_startup_inr"] == pytest.approx(
+        -payload["budget_inr"]
+        + sum(month["operating_profit_inr"] for month in forecast["projections"])
+    )
+    assert first_body["forecasts"][0]["startup_allocation_inr"][
+        "Working capital reserve"
+    ] == 500_000
+    assert first_body["forecasts"][0]["revenue_basis"].startswith(
+        "Illustrative revenue"
+    )
+    assert first_body["forecasts"][0]["utilities_basis"].startswith(
+        "Calculated from user-entered floor area"
+    )
+    assert first_body["forecasts"][0]["payroll_basis"].startswith(
+        "User-entered staffing"
+    )
+    assert first_body["forecasts"][0]["rent_basis"].startswith(
+        "Simulated at"
+    )
+    assert sum(
+        first_body["forecasts"][0]["startup_allocation_inr"].values()
+    ) == payload["budget_inr"]
+    assert first_body["map_places"] == []
+    assert first_body["competitors"] == []
+    assert sum(first_body["factor_weights"].values()) == 1
+
+    second = client.post("/api/analyses/demo", json=payload)
+    assert second.status_code == 200
+    assert [
+        result["total_score"] for result in second.json()["results"]
+    ] == [result["total_score"] for result in first_body["results"]]
+    assert [
+        forecast["monthly_revenue_inr"]
+        for forecast in second.json()["forecasts"]
+    ] == [
+        forecast["monthly_revenue_inr"]
+        for forecast in first_body["forecasts"]
+    ]
+
+    retrieved = client.get(
+        f"/api/analyses/{first_body['analysis_id']}",
+        headers={"Authorization": f"Bearer {first_body['access_token']}"},
+    )
+    assert retrieved.status_code == 200
+    assert retrieved.json() == {
+        **first_body,
+        "access_token": None,
+    }
+    assert client.get(
+        f"/api/analyses/{first_body['analysis_id']}",
+        headers={"Authorization": "Bearer not-the-token"},
+    ).status_code == 404
+    assert client.get(
+        "/api/analyses/999999",
+        headers={"Authorization": "Bearer any-token"},
+    ).status_code == 404
+
+
+def test_demo_analysis_rejects_duplicate_cities(client):
+    response = client.post(
+        "/api/analyses/demo",
+        json={
+            "category": "Grocery",
+            "business_type": "Grocery",
+            "budget_inr": 1_000_000,
+            "cities": ["Pune", " pune "],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_demo_forecast_discloses_user_inputs_and_simulated_city_adjustment(client):
+    response = client.post(
+        "/api/analyses/demo",
+        json={
+            "category": "Fashion",
+            "business_type": "Fashion retail",
+            "budget_inr": 5_000_000,
+            "cities": ["Pune", "Mumbai"],
+            "expected_monthly_revenue_inr": 600_000,
+            "monthly_rent_inr": 85_000,
+            "employee_count": 4,
+        },
+    )
+    assert response.status_code == 200
+    forecast = response.json()["forecasts"][0]
+    assert forecast["revenue_basis"].startswith("User-entered")
+    assert forecast["rent_basis"].startswith("User-entered")
+    assert forecast["rent_inr"] == 85_000
+    assert forecast["payroll_basis"].startswith("User-entered")
+    assert forecast["payroll_inr"] == 88_000
+    assert forecast["utilities_basis"].startswith("Simulated")
+
+
+def test_demo_analysis_does_not_guess_ambiguous_city_coordinates(client):
+    with SessionLocal() as db:
+        db.query(GeographicPlace).filter(
+            GeographicPlace.geoname_id.in_([987654321, 987654322])
+        ).delete(synchronize_session=False)
+        db.add_all(
+            [
+                GeographicPlace(
+                    geoname_id=987654321,
+                    name="Springfield",
+                    ascii_name="Springfield",
+                    admin1_code="16",
+                    admin1_name="State of Mahārāshtra",
+                    latitude=18.5,
+                    longitude=73.8,
+                    feature_code="PPL",
+                    population=1000,
+                    record_modified_on="2026-10-24",
+                    snapshot_date="2026-10-24",
+                    source_name="GeoNames test fixture",
+                    source_url="https://example.test/geonames",
+                    license_status="test fixture",
+                ),
+                GeographicPlace(
+                    geoname_id=987654322,
+                    name="Springfield",
+                    ascii_name="Springfield",
+                    admin1_code="19",
+                    admin1_name="State of Karnataka",
+                    latitude=13.0,
+                    longitude=77.0,
+                    feature_code="PPL",
+                    population=2000,
+                    record_modified_on="2026-10-24",
+                    snapshot_date="2026-10-24",
+                    source_name="GeoNames test fixture",
+                    source_url="https://example.test/geonames",
+                    license_status="test fixture",
+                ),
+            ]
+        )
+        db.commit()
+
+    response = client.post(
+        "/api/analyses/demo",
+        json={
+            "category": "Grocery",
+            "business_type": "Grocery",
+            "budget_inr": 1_000_000,
+            "cities": ["Springfield", "Springfield, Maharashtra"],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["map_resolutions"] == [
+        {
+            "city_name": "Springfield",
+            "status": "ambiguous",
+            "match_count": 2,
+            "note": "Multiple exact place-name matches exist. Add a state or union territory after a comma to disambiguate.",
+        },
+        {
+            "city_name": "Springfield, Maharashtra",
+            "status": "matched",
+            "match_count": 1,
+            "note": "One exact GeoNames place matched this city input.",
+        },
+    ]
+    assert [place["admin1_code"] for place in body["map_places"]] == ["16"]
+
+    with SessionLocal() as db:
+        db.query(GeographicPlace).filter(
+            GeographicPlace.geoname_id.in_([987654321, 987654322])
+        ).delete(synchronize_session=False)
+        db.commit()
+
+
+def test_analysis_payload_migration_preserves_existing_records():
+    legacy_engine = create_engine("sqlite://")
+    with legacy_engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE analysis_runs "
+                "(id INTEGER PRIMARY KEY, results JSON NOT NULL)"
+            )
+        )
+        connection.execute(
+            text("INSERT INTO analysis_runs (id, results) VALUES (1, '[]')")
+        )
+
+    migrate_analysis_payload_schema(legacy_engine)
+
+    with legacy_engine.connect() as connection:
+        columns = {
+            column["name"]
+            for column in sqlalchemy_inspect(connection).get_columns("analysis_runs")
+        }
+        row = connection.execute(
+            text(
+                "SELECT id, results, analysis_payload, "
+                "analysis_access_token_hash FROM analysis_runs WHERE id=1"
+            )
+        ).one()
+    legacy_engine.dispose()
+
+    assert "analysis_payload" in columns
+    assert row.id == 1
+    assert row.results == "[]"
+    assert row.analysis_payload is None
+    assert row.analysis_access_token_hash is None
+
+
 def test_location_crud_filters_and_geographic_distance(client):
     first = client.post(
         "/api/locations",
@@ -615,3 +865,58 @@ def test_scenario_rejects_boolean_factor_values(client):
     )
 
     assert response.status_code == 422
+
+
+def test_demo_analysis_supports_cafe_and_pdf_download(client):
+    payload = {
+        "category": "Café or restaurant",
+        "business_type": "Specialty Coffee Roastery",
+        "budget_inr": 2_000_000,
+        "cities": ["Mumbai", "Pune"],
+        "expected_average_ticket_inr": 350,
+        "expected_customers_per_day": 120,
+        "floor_area_sqft": 1000,
+        "employee_count": 6,
+    }
+    create_resp = client.post("/api/analyses/demo", json=payload)
+    assert create_resp.status_code == 200
+    body = create_resp.json()
+    assert body["business_profile"]["business_type"] == "Specialty Coffee Roastery"
+    assert body["recommended_city"] in ["Mumbai", "Pune"]
+    assert "Specialty Coffee Roastery" in body["business_profile"]["business_type"]
+    assert body["pdf_report_available"] is True
+    assert len(body["forecasts"]) == 2
+    f0 = body["forecasts"][0]
+    assert "Calculated from user inputs" in f0["revenue_basis"]
+    assert f0["startup_capital_required_inr"] > 0
+    assert f0["break_even_months"] is not None
+    assert len(f0["advantages"]) > 0
+
+    analysis_id = body["analysis_id"]
+    token = body["access_token"]
+
+    # Test PDF download endpoint with header
+    pdf_resp = client.get(
+        f"/api/analyses/{analysis_id}/pdf",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert pdf_resp.status_code == 200
+    assert pdf_resp.headers["content-type"] == "application/pdf"
+    assert pdf_resp.content.startswith(b"%PDF")
+    assert len(pdf_resp.content) > 5000
+
+    # Test PDF download endpoint with query param
+    pdf_resp_query = client.get(f"/api/analyses/{analysis_id}/pdf?token={token}")
+    assert pdf_resp_query.status_code == 200
+    assert pdf_resp_query.headers["content-type"] == "application/pdf"
+
+    # Test rejection without token or with wrong token
+    assert client.get(f"/api/analyses/{analysis_id}/pdf").status_code == 401
+    assert (
+        client.get(
+            f"/api/analyses/{analysis_id}/pdf",
+            headers={"Authorization": "Bearer bad-token"},
+        ).status_code
+        == 403
+    )
+

@@ -4,6 +4,7 @@ import type { ScenarioResult, ScenarioSettings } from "../types";
 
 type Props = {
 onApply?: (cityName: string, assumptions: ScenarioSettings) => void;
+canAnalyze?: boolean;
 loading?: boolean;
 result?: ScenarioResult | null;
 error?: string | null;
@@ -14,6 +15,7 @@ onCityChange?: (cityName: string) => void;
 
 export default function ScenarioPanel({
 onApply,
+canAnalyze = true,
 loading = false,
 result,
 error,
@@ -27,10 +29,13 @@ const [costChange, setCostChange] = useState(0);
 function reset() {
 setDemandChange(0);
 setCostChange(0);
-onApply?.(cityName ?? "", { demand_change: 0, cost_change: 0 });
+if (canAnalyze) {
+  onApply?.(cityName ?? "", { demand_change: 0, cost_change: 0 });
+}
 }
 
 function applyScenario() {
+if (!canAnalyze) return;
 onApply?.(cityName ?? "", {
   demand_change: demandChange,
   cost_change: costChange,
@@ -51,6 +56,14 @@ return (
 <SlidersHorizontal size={20} />
 </span>
 </div>
+
+  {!canAnalyze && (
+    <p className="field-help" role="status">
+      Scenario analysis is unavailable because this city has no complete
+      baseline score with a source and verified status. Source-status labels
+      are user-provided and are not independently validated.
+    </p>
+  )}
 
   {cities.length > 1 && (
     <div className="scenario-city-control">
@@ -80,6 +93,7 @@ return (
     <input
       id="demand-change"
       type="range"
+      disabled={!canAnalyze || loading}
       min={-30}
       max={30}
       step={5}
@@ -103,6 +117,7 @@ return (
     <input
       id="cost-change"
       type="range"
+      disabled={!canAnalyze || loading}
       min={-30}
       max={30}
       step={5}
@@ -161,7 +176,7 @@ return (
       type="button"
       className="secondary-button"
       onClick={reset}
-      disabled={loading}
+      disabled={loading || !canAnalyze}
     >
       <RotateCcw size={15} /> Reset
     </button>
@@ -169,7 +184,7 @@ return (
       type="button"
       className="primary-button"
       onClick={applyScenario}
-      disabled={loading}
+      disabled={loading || !canAnalyze}
     >
       {loading ? "Recalculating..." : "Apply assumptions"}
     </button>

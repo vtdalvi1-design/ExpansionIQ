@@ -1,4 +1,5 @@
 import {
+AlertTriangle,
 Activity,
 ArrowRight,
 BarChart3,
@@ -16,29 +17,36 @@ import ScoreCard from "../components/ScoreCard";
 type Props = {
 onCompare: (input: CityComparisonInput) => void;
 onOpenAreaFinder?: () => void;
+onOpenMarketInputs?: () => void;
+apiStatus: "checking" | "connected" | "unavailable";
 loading?: boolean;
 error?: string | null;
 cityOptions?: string[];
 cityOptionsError?: string | null;
 locationCount?: number | null;
-competitorCount?: number | null;
 };
 
 export default function Dashboard({
 onCompare,
 onOpenAreaFinder,
+onOpenMarketInputs,
+apiStatus,
 loading = false,
 error,
 cityOptions = [],
 cityOptionsError,
 locationCount = null,
-competitorCount = null,
 }: Props) {
 const recentActivity = [
 {
 title: "Market comparison workspace",
-detail: "Ready for a new city comparison",
-time: "Available now",
+detail:
+  cityOptionsError
+    ? "Market inputs could not be checked"
+    : cityOptions.length === 0
+  ? "Run a clearly labeled demo while verified market inputs are unavailable"
+      : `${cityOptions.length} cities have saved inputs; review completeness before comparing`,
+time: cityOptionsError ? "Unavailable" : cityOptions.length === 0 ? "Inputs needed" : "Review inputs",
 icon: <BarChart3 size={18} />,
 },
 {
@@ -57,8 +65,8 @@ title: "Data quality review",
 detail: cityOptionsError
   ? "Market factor records could not be loaded"
   : cityOptions.length === 0
-    ? "Market factor records have not been supplied"
-    : `${cityOptions.length} cities appear in configured sources`,
+    ? "Verified market factors are absent; demo estimates are synthetic"
+    : `${cityOptions.length} cities have saved factor records`,
 time: cityOptionsError ? "Unavailable" : "Review inputs",
 icon: <Activity size={18} />,
 },
@@ -71,8 +79,9 @@ return (
 <span className="eyebrow">EXPANSION INTELLIGENCE PLATFORM</span>
 <h1>Find your next growth market.</h1>
 <p>
-Compare markets, explore saved candidate locations, and understand
-what supports each retail expansion decision.
+Enter a business type, investment budget, and candidate cities. Review a
+transparent demo analysis and distinguish simulated assumptions from
+verified records.
 </p>
 </div>
 <div className="welcome-illustration" aria-hidden="true">
@@ -89,9 +98,9 @@ what supports each retail expansion decision.
 
   <div className="metrics-grid">
     <ScoreCard
-    title="Cities with data"
+    title="Cities with saved inputs"
     value={cityOptions.length.toString()}
-    subtitle={cityOptionsError ? "Market input status unavailable" : "From configured factor sources"}
+    subtitle={cityOptionsError ? "Market input status unavailable" : "Inputs may be partial or unverified"}
       trend="neutral"
       icon={<BarChart3 size={19} />}
       accent="blue"
@@ -105,14 +114,66 @@ what supports each retail expansion decision.
       accent="violet"
     />
     <ScoreCard
-      title="Evidence-first scoring"
-      value="Transparent"
-      subtitle="Missing factors stay unavailable"
+      title="Demo analysis"
+      value="Labeled"
+      subtitle="Synthetic values are disclosed"
       trend="neutral"
       icon={<Activity size={19} />}
       accent="teal"
     />
   </div>
+
+  {cityOptions.length === 0 && (
+    <section
+      className={`market-readiness-card ${
+        apiStatus === "connected" && !cityOptionsError
+          ? "market-readiness-missing"
+          : "market-readiness-unavailable"
+      }`}
+      aria-live="polite"
+    >
+      <span className="market-readiness-icon">
+        <AlertTriangle size={20} />
+      </span>
+      <div className="market-readiness-content">
+        <span className="eyebrow">RANKING READINESS</span>
+        <h2>
+          {apiStatus === "checking"
+            ? "Checking market inputs"
+            : apiStatus === "unavailable" || cityOptionsError
+              ? "Market input availability could not be confirmed"
+              : "Verified market rankings are unavailable"}
+        </h2>
+        <p>
+          {apiStatus === "checking"
+            ? "Connecting to the backend to check for saved market-factor records."
+            : apiStatus === "unavailable" || cityOptionsError
+              ? "The backend market-input endpoint is unavailable. Rankings remain unavailable until the saved records can be checked."
+              : "No verified city market-factor records are saved. Demo analyses can still illustrate the workflow using synthetic values, clearly labeled as not real market evidence. Historical Census population is context only."}
+        </p>
+        {apiStatus === "connected" &&
+          !cityOptionsError &&
+          cityOptions.length === 0 && (
+            <>
+              <p>
+                For real-world decisions, category-specific comparisons need
+                sourced demand, competition, accessibility, cost, and category
+                fit inputs. Demo estimates are not independently researched
+                and should not be treated as recommendations.
+              </p>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={onOpenMarketInputs}
+              >
+                Review market input requirements
+                <ArrowRight size={15} />
+              </button>
+            </>
+          )}
+      </div>
+    </section>
+  )}
 
   <CityComparisonForm
     onSubmit={onCompare}
@@ -169,45 +230,7 @@ what supports each retail expansion decision.
       </div>
     </section>
 
-    <DataSources
-      sources={[
-        {
-          name: "City market factors",
-          description: cityOptionsError
-            ? "Factor records could not be loaded"
-            : `${cityOptions.length} cities in configured sources`,
-          status: cityOptionsError
-            ? "pending"
-            : cityOptions.length > 0
-              ? "available"
-              : "pending",
-        },
-        {
-          name: "Candidate locations",
-          description:
-            locationCount === null
-              ? "Location records could not be loaded"
-              : `${locationCount} saved candidate locations`,
-          status:
-            locationCount === null
-              ? "pending"
-              : locationCount > 0
-                ? "available"
-                : "pending",
-        },
-        {
-          name: "Competitor and neighborhood datasets",
-          description:
-            competitorCount === null
-              ? "Competitor records could not be loaded"
-              : `${competitorCount} competitor records; neighborhood boundaries are not included`,
-          status:
-            competitorCount === null || competitorCount === 0
-              ? "pending"
-              : "available",
-        },
-      ]}
-    />
+    <DataSources />
   </div>
 
   <p className="dashboard-disclaimer">

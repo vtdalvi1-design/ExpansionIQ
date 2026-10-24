@@ -8,6 +8,7 @@ from app.database import (
     Base,
     SessionLocal,
     engine,
+    migrate_analysis_payload_schema,
     migrate_district_crosswalk_schema,
     migrate_legacy_schema,
 )
@@ -17,6 +18,7 @@ from app.routers import (
     cities,
     comparisons,
     datasets,
+    demo_analyses,
     exports,
     geography,
     locations,
@@ -30,6 +32,7 @@ from app.services.dataset_registry import seed_dataset_registry
 async def lifespan(_app: FastAPI):
     migrate_legacy_schema()
     Base.metadata.create_all(bind=engine)
+    migrate_analysis_payload_schema()
     migrate_district_crosswalk_schema()
     with SessionLocal() as db:
         seed_dataset_registry(db)
@@ -68,6 +71,7 @@ app.add_middleware(
 
 app.include_router(cities.router, prefix="/api")
 app.include_router(comparisons.router, prefix="/api")
+app.include_router(demo_analyses.router, prefix="/api")
 app.include_router(scenarios.router, prefix="/api")
 app.include_router(exports.router, prefix="/api")
 app.include_router(locations.router, prefix="/api")

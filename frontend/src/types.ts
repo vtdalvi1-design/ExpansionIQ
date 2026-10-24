@@ -1,6 +1,6 @@
 import type { Geometry } from "geojson";
 
-export type RetailCategory = "Grocery" | "Fashion" | "Electronics";
+export type RetailCategory = string;
 
 export interface ComparisonRequest {
   category: RetailCategory;
@@ -31,6 +31,101 @@ export interface ComparisonResult {
   category: RetailCategory;
   results: CityResult[];
   data_status: "available" | "no_complete_scores";
+}
+
+export interface BusinessAnalysisInput {
+  category: RetailCategory;
+  business_type: string;
+  budget_inr: number;
+  cities: string[];
+  business_model: string;
+  target_customer: string;
+  floor_area_sqft: number | null;
+  expected_monthly_revenue_inr: number | null;
+  monthly_rent_inr: number | null;
+  employee_count: number | null;
+  expected_average_ticket_inr?: number | null;
+  expected_customers_per_day?: number | null;
+  monthly_operating_expenses_inr?: number | null;
+  forecast_start_date?: string | null;
+}
+
+export interface DemoForecastMonth {
+  month: number;
+  revenue_inr: number;
+  expense_inr: number;
+  operating_profit_inr: number;
+  cashflow_after_startup_inr: number;
+}
+
+export interface DemoCityForecast {
+  city_name: string;
+  revenue_basis: string;
+  rent_basis: string;
+  utilities_basis: string;
+  payroll_basis: string;
+  cost_of_goods_basis: string;
+  marketing_basis: string;
+  monthly_revenue_inr: number;
+  cost_of_goods_inr: number;
+  gross_profit_inr: number;
+  rent_inr: number;
+  utilities_inr: number;
+  payroll_inr: number;
+  marketing_inr: number;
+  monthly_expenses_inr: number;
+  operating_profit_inr: number;
+  break_even_revenue_inr: number;
+  payback_months: number | null;
+  startup_allocation_inr: Record<string, number>;
+  scenarios: Record<
+    string,
+    {
+      monthly_revenue_inr: number;
+      monthly_expenses_inr: number;
+      monthly_operating_profit_inr: number;
+    }
+  >;
+  projections: DemoForecastMonth[];
+  startup_capital_required_inr?: number;
+  budget_shortfall_inr?: number;
+  remaining_capital_inr?: number;
+  cash_runway_months?: number | null;
+  break_even_months?: number | null;
+  data_completeness_pct?: number;
+  census_population?: number | null;
+  geonames_population?: number | null;
+  state_name?: string | null;
+  advantages?: string[];
+  disadvantages?: string[];
+  risks?: string[];
+  recommendation_text?: string;
+  is_recommended?: boolean;
+}
+
+export interface DemoAnalysisResponse {
+  analysis_id: number;
+  access_token?: string | null;
+  created_at: string;
+  category: RetailCategory;
+  business_profile: BusinessAnalysisInput;
+  results: CityResult[];
+  forecasts: DemoCityForecast[];
+  factor_weights: Record<string, number>;
+  map_places: GeographicPlaceRecord[];
+  map_resolutions: Array<{
+    city_name: string;
+    status: "matched" | "ambiguous" | "unavailable";
+    match_count: number;
+    note: string;
+  }>;
+  competitors: LocationRecord[];
+  demo_mode: true;
+  disclaimer: string;
+  assumptions: string[];
+  recommended_city?: string | null;
+  recommendation_reason?: string | null;
+  pdf_report_available?: boolean;
 }
 
 export interface ScenarioSettings {
@@ -226,4 +321,33 @@ export interface AdministrativeBoundaryResponse {
   state_options: Array<{ code: string; name: string }>;
   boundaries: AdministrativeBoundary[];
   data_status: "available" | "unavailable";
+}
+
+export interface DatasetRegistryRecord {
+  dataset_key: string;
+  title: string;
+  source_name: string;
+  source_url: string;
+  download_url: string | null;
+  license_status: string;
+  license_url: string | null;
+  attribution: string | null;
+  indicators: string[];
+  geographic_level: string;
+  reference_period: string | null;
+  units: string[];
+  coverage: Record<string, unknown>;
+  import_status: string;
+  local_file_name: string | null;
+  expected_schema: string | null;
+  quality_notes: string;
+  blocked_reason: string | null;
+  downloaded_file_available: boolean;
+  parsed_record_count: number | null;
+  imported_record_count: number;
+}
+
+export interface DatasetRegistryResponse {
+  count: number;
+  datasets: DatasetRegistryRecord[];
 }

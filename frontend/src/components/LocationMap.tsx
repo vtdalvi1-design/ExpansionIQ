@@ -5,15 +5,19 @@ import {
   CircleMarker,
   GeoJSON,
   MapContainer,
+  Popup,
   TileLayer,
   Tooltip,
   useMap,
 } from "react-leaflet";
-import type { LocationRecord } from "../types";
+import { Layers, Map as MapIcon, Globe, Check } from "lucide-react";
 import type {
   AdministrativeBoundary,
   GeographicPlaceRecord,
+  LocationRecord,
 } from "../types";
+
+type MapViewMode = "streets" | "satellite" | "hybrid";
 
 type Props = {
   locations: LocationRecord[];
@@ -42,11 +46,11 @@ function FitLocations({
     if (points.length === 0) return;
 
     if (points.length === 1) {
-      map.setView(points[0], 12);
+      map.setView(points[0], 11);
       return;
     }
 
-    map.fitBounds(points, { padding: [36, 36], maxZoom: 12 });
+    map.fitBounds(points, { padding: [48, 48], maxZoom: 12 });
   }, [locations, places, map]);
 
   return null;
@@ -59,9 +63,9 @@ function ResetView() {
     <button
       type="button"
       className="map-reset-button"
-      onClick={() => map.setView([22, 78], 4)}
+      onClick={() => map.setView([21.5, 78.5], 5)}
     >
-      Reset map
+      Reset view
     </button>
   );
 }
@@ -91,7 +95,7 @@ function BoundaryFeature({
   function highlight(event: LeafletMouseEvent) {
     const layer = event.target;
     if (layer instanceof L.Path) {
-      layer.setStyle({ color: "#ad7929", weight: 2.5, fillOpacity: 0.18 });
+      layer.setStyle({ color: "#D6B36A", weight: 2.5, fillOpacity: 0.22 });
       layer.bringToFront();
     }
   }
@@ -100,10 +104,10 @@ function BoundaryFeature({
     const layer = event.target;
     if (layer instanceof L.Path) {
       layer.setStyle({
-        color: selected ? "#ad7929" : "#475467",
+        color: selected ? "#D6B36A" : "#475467",
         weight: selected ? 2.5 : 1,
-        fillColor: selected ? "#d9ab55" : "#cbd5e1",
-        fillOpacity: selected ? 0.24 : 0.035,
+        fillColor: selected ? "#D6B36A" : "#CBD5E1",
+        fillOpacity: selected ? 0.28 : 0.04,
       });
     }
   }
@@ -112,10 +116,10 @@ function BoundaryFeature({
     <GeoJSON
       data={feature}
       style={{
-        color: selected ? "#ad7929" : "#475467",
+        color: selected ? "#D6B36A" : "#475467",
         weight: selected ? 2.5 : 1,
-        fillColor: selected ? "#d9ab55" : "#cbd5e1",
-        fillOpacity: selected ? 0.24 : 0.035,
+        fillColor: selected ? "#D6B36A" : "#CBD5E1",
+        fillOpacity: selected ? 0.28 : 0.04,
       }}
       eventHandlers={{
         click: select,
@@ -124,36 +128,10 @@ function BoundaryFeature({
       }}
     >
       <Tooltip sticky>
-        {boundary.name} · India district boundary (ADM2), 2021
-        {" · source ID "}
-        {boundary.boundary_id}
+        {boundary.name} · District Boundary (ADM2, 2021)
       </Tooltip>
     </GeoJSON>
   );
-}
-
-function FitSelectedBoundary({
-  boundaries,
-  selectedBoundaryId,
-}: {
-  boundaries: AdministrativeBoundary[];
-  selectedBoundaryId: string | null;
-}) {
-  const map = useMap();
-
-  useEffect(() => {
-    const boundary = boundaries.find(
-      (item) => item.boundary_id === selectedBoundaryId
-    );
-    if (!boundary) return;
-    const layer = L.geoJSON(boundary.geometry);
-    const bounds = layer.getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [36, 36], maxZoom: 9 });
-    }
-  }, [boundaries, map, selectedBoundaryId]);
-
-  return null;
 }
 
 export default function LocationMap({
@@ -165,85 +143,225 @@ export default function LocationMap({
   onSelectLocation,
   onSelectBoundary,
 }: Props) {
+  const [viewMode, setViewMode] = useState<MapViewMode>("streets");
+  const [showBoundaries, setShowBoundaries] = useState(false);
   const [tilesUnavailable, setTilesUnavailable] = useState(false);
 
   return (
-    <div className="location-map-frame">
+    <div className="location-map-frame" style={{ position: "relative" }}>
+      {/* MAP LAYER CONTROLS (Requirement 5) */}
+      <div
+        style={{
+          position: "absolute",
+          top: "14px",
+          left: "14px",
+          zIndex: 1000,
+          background: "rgba(17, 24, 39, 0.92)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid #29364A",
+          borderRadius: "8px",
+          padding: "6px",
+          display: "flex",
+          gap: "4px",
+          boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setViewMode("streets")}
+          style={{
+            background: viewMode === "streets" ? "#D6B36A" : "transparent",
+            color: viewMode === "streets" ? "#0B1220" : "#F8FAFC",
+            border: "none",
+            borderRadius: "6px",
+            padding: "6px 10px",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+          }}
+        >
+          <MapIcon size={14} /> Standard Streets
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode("satellite")}
+          style={{
+            background: viewMode === "satellite" ? "#D6B36A" : "transparent",
+            color: viewMode === "satellite" ? "#0B1220" : "#F8FAFC",
+            border: "none",
+            borderRadius: "6px",
+            padding: "6px 10px",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+          }}
+        >
+          <Globe size={14} /> Satellite
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode("hybrid")}
+          style={{
+            background: viewMode === "hybrid" ? "#D6B36A" : "transparent",
+            color: viewMode === "hybrid" ? "#0B1220" : "#F8FAFC",
+            border: "none",
+            borderRadius: "6px",
+            padding: "6px 10px",
+            fontSize: "12px",
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+          }}
+        >
+          <Layers size={14} /> Satellite with Labels
+        </button>
+        {boundaries.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowBoundaries(!showBoundaries)}
+            style={{
+              background: showBoundaries ? "rgba(214, 179, 106, 0.2)" : "transparent",
+              color: showBoundaries ? "#D6B36A" : "#A7B2C4",
+              border: "1px solid",
+              borderColor: showBoundaries ? "#D6B36A" : "#29364A",
+              borderRadius: "6px",
+              padding: "6px 10px",
+              fontSize: "12px",
+              cursor: "pointer",
+              marginLeft: "4px",
+            }}
+          >
+            Districts {showBoundaries ? "ON" : "OFF"}
+          </button>
+        )}
+      </div>
+
       <MapContainer
-        center={[22, 78]}
-        zoom={4}
+        center={[21.5, 78.5]}
+        zoom={5}
         minZoom={3}
         maxZoom={18}
         scrollWheelZoom
         keyboard
         className="location-map"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{
-            load: () => setTilesUnavailable(false),
-            tileerror: () => setTilesUnavailable(true),
-          }}
-        />
+        {/* BASE TILE LAYERS */}
+        {viewMode === "streets" ? (
+          <TileLayer
+            key="streets"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            eventHandlers={{
+              load: () => setTilesUnavailable(false),
+              tileerror: () => setTilesUnavailable(true),
+            }}
+          />
+        ) : (
+          <TileLayer
+            key="satellite"
+            attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            eventHandlers={{
+              load: () => setTilesUnavailable(false),
+              tileerror: () => setTilesUnavailable(true),
+            }}
+          />
+        )}
+
+        {/* HYBRID LABELS OVERLAY */}
+        {viewMode === "hybrid" && (
+          <TileLayer
+            key="hybrid-labels"
+            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
+            opacity={0.88}
+          />
+        )}
+
         <FitLocations locations={locations} places={places} />
         <ResetView />
+
+        {/* GEONAMES PLACES PINS */}
         {places.map((place) => (
           <CircleMarker
             key={place.geoname_id}
             center={[place.latitude, place.longitude]}
-            radius={4}
+            radius={8}
             pathOptions={{
-              color: "#ffffff",
-              weight: 1,
-              fillColor: "#c2852d",
-              fillOpacity: 0.78,
+              color: "#FFFFFF",
+              weight: 2,
+              fillColor: "#D6B36A",
+              fillOpacity: 0.9,
             }}
           >
-            <Tooltip direction="top" offset={[0, -5]} opacity={1}>
-              {place.name}
-              {place.admin1_name ? ` · ${place.admin1_name}` : ""}
-              {" · GeoNames populated-place point"}
+            <Popup>
+              <div style={{ color: "#0B1220", fontSize: "13px" }}>
+                <strong style={{ fontSize: "14px", display: "block" }}>{place.name}</strong>
+                <span>{place.admin1_name ? `State: ${place.admin1_name}` : "India"}</span>
+                <br />
+                <span>Population: <strong>{place.population ? place.population.toLocaleString("en-IN") : "Recorded in gazetteer"}</strong></span>
+                <br />
+                <span style={{ fontSize: "11px", color: "#64748B" }}>
+                  Coordinates: {place.latitude.toFixed(4)}, {place.longitude.toFixed(4)}
+                </span>
+              </div>
+            </Popup>
+            <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+              <strong>{place.name}</strong> {place.admin1_name ? `· ${place.admin1_name}` : ""}
             </Tooltip>
           </CircleMarker>
         ))}
-        {boundaries.map((boundary) => {
-          const selected = boundary.boundary_id === selectedBoundaryId;
-          return (
-            <BoundaryFeature
-              key={`${boundary.boundary_id}-${boundary.level}`}
-              boundary={boundary}
-              selected={selected}
-              onSelect={onSelectBoundary}
-            />
-          );
-        })}
-        <FitSelectedBoundary
-          boundaries={boundaries}
-          selectedBoundaryId={selectedBoundaryId}
-        />
+
+        {/* DISTRICT BOUNDARIES (OPTIONAL OVERLAY) */}
+        {showBoundaries &&
+          boundaries.map((boundary) => {
+            const selected = boundary.boundary_id === selectedBoundaryId;
+            return (
+              <BoundaryFeature
+                key={`${boundary.boundary_id}-${boundary.level}`}
+                boundary={boundary}
+                selected={selected}
+                onSelect={onSelectBoundary}
+              />
+            );
+          })}
+
+        {/* COMPETITORS / CANDIDATES */}
         {locations.map((location) => {
           const selected = location.id === selectedLocationId;
+          const isComp = location.location_type === "competitor";
           return (
             <CircleMarker
               key={location.id}
               center={[location.latitude, location.longitude]}
-              radius={selected ? 10 : 7}
+              radius={selected ? 11 : 7}
               pathOptions={{
-                color: "#ffffff",
+                color: "#FFFFFF",
                 weight: 2,
-                fillColor:
-                  location.location_type === "competitor"
-                    ? "#e58a3a"
-                    : location.source_status === "verified"
-                      ? "#138f76"
-                      : "#596ce1",
-                fillOpacity: 0.94,
+                fillColor: isComp ? "#F87171" : "#34D399",
+                fillOpacity: 0.95,
               }}
               eventHandlers={{
                 click: () => onSelectLocation(location.id),
               }}
             >
+              <Popup>
+                <div style={{ color: "#0B1220", fontSize: "13px" }}>
+                  <strong>{location.name}</strong> ({isComp ? "Competitor" : "Candidate"})
+                  <br />
+                  <span>City: {location.city}</span>
+                  <br />
+                  <span style={{ fontSize: "11px", color: "#64748B" }}>Status: {location.source_status}</span>
+                </div>
+              </Popup>
               <Tooltip direction="top" offset={[0, -7]} opacity={1}>
                 {location.name} · {location.city}
               </Tooltip>
@@ -251,24 +369,29 @@ export default function LocationMap({
           );
         })}
       </MapContainer>
+
       {tilesUnavailable && (
         <p className="map-tile-warning" role="status">
-          Map tiles could not be loaded. Check your network connection; location
-          records remain available in the list.
+          Notice: Satellite/Street map tiles could not be fetched. Check network access; coordinates
+          and analytical data remain fully operational.
         </p>
       )}
-      <div className="map-legend" aria-label="Map legend">
-        <strong>Location types</strong>
-        <span><i className="legend-dot geo-place" /> GeoNames place point</span>
-        <span><i className="legend-dot district-boundary" /> District boundary (2021)</span>
+
+      {/* MAP LEGEND (Requirement 5) */}
+      <div className="map-legend" role="group" aria-label="Map legend">
+        <strong>Map Indicators</strong>
         <span>
-          <i className="legend-dot verified" /> Candidate
+          <i className="legend-dot" style={{ background: "#D6B36A", border: "1px solid #FFF" }} /> Candidate City Center
         </span>
         <span>
-          <i className="legend-dot other" /> Other candidate
+          <i className="legend-dot" style={{ background: "#34D399", border: "1px solid #FFF" }} /> Candidate Site
         </span>
-        <span><i className="legend-dot competitor" /> Competitor</span>
-        <p>GeoNames dots are reference points, not store sites or boundaries. District polygons are an incomplete 2021 reference layer and do not include official district codes.</p>
+        <span>
+          <i className="legend-dot" style={{ background: "#F87171", border: "1px solid #FFF" }} /> Competitor Location
+        </span>
+        <p style={{ marginTop: "6px", fontSize: "11px", color: "#A7B2C4" }}>
+          Geographic data uses WGS84 coordinates from GeoNames & geoBoundaries ADM2 district vintage.
+        </p>
       </div>
     </div>
   );

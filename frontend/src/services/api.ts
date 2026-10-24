@@ -1,7 +1,10 @@
 import type {
   ComparisonRequest,
   ComparisonResult,
+  BusinessAnalysisInput,
+  DemoAnalysisResponse,
   CensusPopulationResponse,
+  DatasetRegistryResponse,
   AdministrativeBoundaryResponse,
   FactorValues,
   GeographicPlaceResponse,
@@ -89,6 +92,9 @@ async function request<T>(
 export const api = {
   health: () =>
     request<{ status: string }>("/health"),
+
+  getDatasets: () =>
+    request<DatasetRegistryResponse>("/datasets"),
 
   getCities: () =>
     request<{ cities: string[] }>("/cities"),
@@ -189,6 +195,17 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  createDemoAnalysis: (payload: BusinessAnalysisInput) =>
+    request<DemoAnalysisResponse>("/analyses/demo", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getDemoAnalysis: (analysisId: number, accessToken: string) =>
+    request<DemoAnalysisResponse>(`/analyses/${analysisId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+
   runScenario: (
     category: RetailCategory,
     factors: FactorValues,
@@ -213,6 +230,37 @@ export const api = {
         if (body.detail) message = body.detail;
       } catch {
         // Keep the status message when the error response is not JSON.
+      }
+      throw new Error(message);
+    }
+
+    return response.blob();
+  },
+
+  downloadFeasibilityReportPdf: async (
+    analysisId: number,
+    accessToken?: string | null
+  ): Promise<Blob> => {
+    const headers: Record<string, string> = {};
+    if (accessToken) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+    }
+    const tokenQuery = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
+    const response = await fetchWithTimeout(
+      `${API_BASE_URL}/analyses/${analysisId}/pdf${tokenQuery}`,
+      {
+        method: "GET",
+        headers,
+      }
+    );
+
+    if (!response.ok) {
+      let message = `Failed to generate or download feasibility report (${response.status}).`;
+      try {
+        const body = (await response.json()) as { detail?: string };
+        if (body.detail) message = body.detail;
+      } catch {
+        // Fallback
       }
       throw new Error(message);
     }

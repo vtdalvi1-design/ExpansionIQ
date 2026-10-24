@@ -2,9 +2,13 @@ import type { CityResult } from "../types";
 
 type Props = {
   results: CityResult[];
+  demoMode?: boolean;
 };
 
-export default function ComparisonTable({ results }: Props) {
+export default function ComparisonTable({
+  results,
+  demoMode = false,
+}: Props) {
   if (results.length === 0) {
     return (
       <section className="panel">
@@ -31,7 +35,7 @@ export default function ComparisonTable({ results }: Props) {
       <div className="panel-heading">
         <div>
           <span className="eyebrow">SIDE-BY-SIDE ANALYSIS</span>
-          <h2>City scorecard</h2>
+          <h2>{demoMode ? "Simulated city scorecard" : "City scorecard"}</h2>
         </div>
         <span className="muted-label">{results.length} cities</span>
       </div>
@@ -40,9 +44,9 @@ export default function ComparisonTable({ results }: Props) {
         <table className="comparison-table">
           <thead>
             <tr>
-              <th>Evaluation factor</th>
+              <th scope="col">Evaluation factor</th>
               {ranked.map((city) => (
-                <th key={city.city_name}>
+                <th scope="col" key={city.city_name}>
                   <div className="table-city-name">{city.city_name}</div>
                   {city.rank !== null && (
                     <div className="table-city-score">Rank #{city.rank}</div>
@@ -59,7 +63,7 @@ export default function ComparisonTable({ results }: Props) {
 
           <tbody>
             <tr className="total-score-row">
-              <td>Overall score</td>
+              <th scope="row">Overall score</th>
               {ranked.map((city) => (
                 <td key={city.city_name}>
                   {city.total_score == null
@@ -71,7 +75,7 @@ export default function ComparisonTable({ results }: Props) {
 
             {factors.map((factor) => (
               <tr key={factor.key}>
-                <td>{factor.label}</td>
+                <th scope="row">{factor.label}</th>
                 {ranked.map((city) => {
                   const score = city[factor.key];
                   return (
@@ -86,28 +90,28 @@ export default function ComparisonTable({ results }: Props) {
             ))}
 
             <tr>
-              <td>Data source</td>
+              <th scope="row">Data source</th>
               {ranked.map((city) => (
                 <td key={city.city_name}>{city.source ?? "Not provided"}</td>
               ))}
             </tr>
 
             <tr>
-              <td>Data status</td>
+              <th scope="row">Data status</th>
               {ranked.map((city) => (
                 <td key={city.city_name}>{city.source_status.replaceAll("_", " ")}</td>
               ))}
             </tr>
 
             <tr>
-              <td>Source notes</td>
+              <th scope="row">Source notes</th>
               {ranked.map((city) => (
                 <td key={city.city_name}>{city.notes ?? "None"}</td>
               ))}
             </tr>
 
             <tr>
-              <td>Missing factors</td>
+              <th scope="row">Missing factors</th>
               {ranked.map((city) => (
                 <td key={city.city_name}>
                   {city.missing_factors.length === 0
@@ -121,8 +125,9 @@ export default function ComparisonTable({ results }: Props) {
       </div>
 
       <p className="footnote">
-        Scores use the displayed factor values and source information. Verify
-        source material before making an investment decision.
+        {demoMode
+          ? "These deterministic demo scores are synthetic examples, not verified market data or investment recommendations."
+          : "Scores use the displayed factor values and source information. Verify source material before making an investment decision."}
       </p>
     </section>
   );

@@ -12,18 +12,18 @@ import type {
 
 type Props = {
   onBack: () => void;
-  initialCity?: string;
+  initialSearch?: string;
 };
 
 const categories: RetailCategory[] = ["Grocery", "Fashion", "Electronics"];
 
-export default function SiteFinder({ onBack, initialCity = "" }: Props) {
+export default function SiteFinder({ onBack, initialSearch = "" }: Props) {
   const [result, setResult] = useState<LocationListResult | null>(null);
   const [placeResult, setPlaceResult] =
     useState<GeographicPlaceResponse | null>(null);
   const [placeError, setPlaceError] = useState<string | null>(null);
-  const [placeSearchInput, setPlaceSearchInput] = useState("");
-  const [placeSearch, setPlaceSearch] = useState("");
+  const [placeSearchInput, setPlaceSearchInput] = useState(initialSearch);
+  const [placeSearch, setPlaceSearch] = useState(initialSearch);
   const [placeStateCode, setPlaceStateCode] = useState("");
   const [showPlacePoints, setShowPlacePoints] = useState(true);
   const [showDistrictBoundaries, setShowDistrictBoundaries] = useState(false);
@@ -36,11 +36,14 @@ export default function SiteFinder({ onBack, initialCity = "" }: Props) {
     null
   );
   const [error, setError] = useState<string | null>(null);
-  const [city, setCity] = useState(initialCity);
+  const [city, setCity] = useState("");
   const [category, setCategory] = useState<RetailCategory | "">("");
   const [locationType, setLocationType] = useState<"" | "candidate" | "competitor">("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(
+    null
+  );
+  const [confirmDeleteLocationId, setConfirmDeleteLocationId] = useState<number | null>(
     null
   );
   const [reloadKey, setReloadKey] = useState(0);
@@ -266,6 +269,7 @@ export default function SiteFinder({ onBack, initialCity = "" }: Props) {
     setCreateNotice(null);
     try {
       await api.deleteLocation(location.id);
+      setConfirmDeleteLocationId(null);
       setCreateNotice(`${location.name} was deleted.`);
       setReloadKey((key) => key + 1);
     } catch (requestError) {
@@ -417,7 +421,11 @@ export default function SiteFinder({ onBack, initialCity = "" }: Props) {
           {createNotice && <p className="success-message" role="status">{createNotice}</p>}
         </form>
 
-        <div className="location-filter-bar" aria-label="Location filters">
+        <div
+          className="location-filter-bar"
+          role="group"
+          aria-label="Location filters"
+        >
           <label className="location-filter search-filter">
             <span>Search results</span>
             <span className="search-input-wrap">
@@ -597,7 +605,11 @@ export default function SiteFinder({ onBack, initialCity = "" }: Props) {
               </div>
               <MapPinned size={19} />
             </div>
-            <div className="map-layer-controls" aria-label="Map layers">
+            <div
+              className="map-layer-controls"
+              role="group"
+              aria-label="Map layers"
+            >
               <label>
                 <input
                   type="checkbox"
@@ -884,13 +896,41 @@ export default function SiteFinder({ onBack, initialCity = "" }: Props) {
                   )}
                   <small>Distances are straight-line, not road distances.</small>
                 </div>
-                <button
-                  className="secondary-button location-delete-button"
-                  type="button"
-                  onClick={() => void removeLocation(selectedLocation)}
-                >
-                  <Trash2 size={15} /> Delete location
-                </button>
+                {confirmDeleteLocationId === selectedLocation.id ? (
+                  <div
+                    className="delete-confirmation"
+                    role="group"
+                    aria-label={`Confirm deletion of ${selectedLocation.name}`}
+                  >
+                    <span role="status">
+                      Delete {selectedLocation.name}? This cannot be undone.
+                    </span>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => setConfirmDeleteLocationId(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => void removeLocation(selectedLocation)}
+                    >
+                      Confirm delete
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="secondary-button location-delete-button"
+                    type="button"
+                    onClick={() =>
+                      setConfirmDeleteLocationId(selectedLocation.id)
+                    }
+                  >
+                    <Trash2 size={15} /> Delete location
+                  </button>
+                )}
               </div>
             )}
           </aside>

@@ -1,4 +1,4 @@
-import { ChevronDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 type Props = {
@@ -26,8 +26,8 @@ export default function Header({ apiStatus, onSearch }: Props) {
         <Search size={17} />
         <input
           type="search"
-          placeholder="Search cities, areas, or reports..."
-          aria-label="Search cities, areas, or reports"
+          placeholder="Find a city or saved area..."
+          aria-label="Find a city or saved area"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -37,15 +37,17 @@ export default function Header({ apiStatus, onSearch }: Props) {
       </form>
 
       <div className="topbar-actions">
-        <span className="live-status">
-          <span className={`status-dot status-${apiStatus}`} />
+        <span className="live-status" role="status" aria-live="polite">
+          <span
+            className={`status-dot status-${apiStatus}`}
+            aria-hidden="true"
+          />
           {statusLabel}
         </span>
 
-        <div className="profile-button">
+        <div className="profile-identity">
           <span className="avatar">IQ</span>
           <span className="profile-name">ExpansionIQ</span>
-          <ChevronDown size={15} />
         </div>
       </div>
     </header>
