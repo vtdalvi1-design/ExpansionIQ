@@ -82,13 +82,14 @@ app.include_router(datasets.router, prefix="/api")
 app.include_router(market_scores.router, prefix="/api")
 
 
-@app.get("/")
-def root():
-    return {
-        "name": "ExpansionIQ API",
-        "status": "running",
-        "docs": "/docs",
-    }
+from pathlib import Path
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+FRONTEND_DIST_PATH = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+if (FRONTEND_DIST_PATH / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST_PATH / "assets")), name="assets")
 
 
 @app.get("/health")
@@ -99,3 +100,30 @@ def health():
 @app.get("/api/health")
 def api_health():
     return {"status": "healthy"}
+
+
+@app.get("/")
+def root():
+    index_file = FRONTEND_DIST_PATH / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
+    return {
+        "name": "ExpansionIQ API",
+        "status": "running",
+        "docs": "/docs",
+    }
+
+
+@app.get("/{full_path:path}")
+def serve_spa(full_path: str):
+    file_path = FRONTEND_DIST_PATH / full_path
+    if file_path.is_file():
+        return FileResponse(file_path)
+    index_file = FRONTEND_DIST_PATH / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
+    return {
+        "name": "ExpansionIQ API",
+        "status": "running",
+        "docs": "/docs",
+    }
