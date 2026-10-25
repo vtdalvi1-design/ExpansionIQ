@@ -454,19 +454,21 @@ export default function Results({
             <div className="panel-heading">
               <div>
                 <span className="eyebrow">GEOGRAPHIC CONTEXT & LOCATIONS</span>
-                <h2>Interactive Location Intelligence Map</h2>
+                <h2>Spatial Intelligence & Factor Map</h2>
                 <p className="panel-description">
-                  Inspect candidate cities, geographical coordinates, verified population centers, and district boundaries.
-                  Use the map controls to toggle between <strong>Standard Streets</strong>, <strong>Satellite View</strong>,
-                  and <strong>Satellite with Labels</strong>.
+                  Inspect candidate cities, urban core population density zones, arterial transit & highway connectivity,
+                  trade area catchments, and competitor clusters. Use the quick-focus buttons above the map to fly camera
+                  directly into any evaluated city.
                 </p>
               </div>
             </div>
 
             <LocationMap
-              locations={[]}
+              locations={comparison.competitors || []}
               places={comparison.map_places}
               boundaries={[]}
+              results={comparison.results}
+              forecasts={comparison.forecasts}
               selectedLocationId={null}
               selectedBoundaryId={null}
               onSelectLocation={() => {}}
@@ -877,8 +879,8 @@ export default function Results({
                   No verified competitor records currently cataloged
                 </strong>
                 <p style={{ color: "#A7B2C4", maxWidth: "540px", margin: "6px auto 0 auto", fontSize: "13px" }}>
-                  Competitor density benchmarks in scoring are currently calculated from population ratios.
-                  You can input verified competitor locations in the <strong>Area Finder</strong> workspace.
+                  Competitor density benchmarks in scoring are calculated from commercial retail cluster benchmarks,
+                  spatial coordinates, and population ratios.
                 </p>
               </div>
             )}

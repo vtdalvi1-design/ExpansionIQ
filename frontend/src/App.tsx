@@ -322,16 +322,11 @@ export default function App() {
 
   function handleGlobalSearch(query: string) {
     const normalized = query.toLocaleLowerCase();
-    if (normalized.includes("input") || normalized.includes("factor")) {
-      setActivePage("settings");
-      return;
-    }
-    if (normalized.includes("result") || normalized.includes("report")) {
+    if (normalized.includes("result") || normalized.includes("report") || normalized.includes("analys")) {
       setActivePage("results");
       return;
     }
-    setFinderQuery(query);
-    setActivePage("site-finder");
+    setActivePage("dashboard");
   }
 
   return (
@@ -349,8 +344,6 @@ export default function App() {
             {activePage === "dashboard" && (
               <Dashboard
                 onCompare={handleCompare}
-                onOpenAreaFinder={() => setActivePage("site-finder")}
-                onOpenMarketInputs={() => setActivePage("settings")}
                 apiStatus={apiStatus}
                 loading={comparisonLoading}
                 error={comparisonError}
@@ -383,14 +376,6 @@ export default function App() {
                 pdfError={pdfError}
               />
             )}
-            {activePage === "site-finder" && (
-              <SiteFinder
-                key={finderQuery}
-                initialSearch={finderQuery}
-                onBack={() => setActivePage("dashboard")}
-              />
-            )}
-            {activePage === "settings" && <Settings />}
           </Suspense>
         </main>
       </div>

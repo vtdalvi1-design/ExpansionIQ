@@ -1,6 +1,6 @@
 import { BarChart3, Database, LayoutDashboard, MapPinned } from "lucide-react";
 
-export type WorkspacePage = "dashboard" | "results" | "site-finder" | "settings";
+export type WorkspacePage = "dashboard" | "results";
 
 type Props = {
   activePage: WorkspacePage;
@@ -12,10 +12,8 @@ const navigationItems: {
   label: string;
   icon: typeof LayoutDashboard;
 }[] = [
-  { id: "dashboard", label: "Workspace", icon: LayoutDashboard },
-  { id: "results", label: "Market results", icon: BarChart3 },
-  { id: "site-finder", label: "Area finder", icon: MapPinned },
-  { id: "settings", label: "Market inputs", icon: Database },
+  { id: "dashboard", label: "New Analysis", icon: LayoutDashboard },
+  { id: "results", label: "Expansion Intelligence", icon: BarChart3 },
 ];
 
 export default function Sidebar({ activePage, onNavigate }: Props) {
