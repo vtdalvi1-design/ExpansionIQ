@@ -2985,3 +2985,34 @@ option {
     transform: rotate(360deg);
   }
 }
+
+@keyframes pulseRadar {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+.custom-opportunity-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-opportunity-tooltip.leaflet-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.custom-opportunity-tooltip.leaflet-tooltip::before {
+  border-top-color: #D6B36A !important;
+}

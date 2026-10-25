@@ -87,9 +87,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 FRONTEND_DIST_PATH = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+FRONTEND_PUBLIC_PATH = Path(__file__).resolve().parents[2] / "frontend" / "public"
 
 if (FRONTEND_DIST_PATH / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST_PATH / "assets")), name="assets")
+
+sites_dir = FRONTEND_DIST_PATH / "sites" if (FRONTEND_DIST_PATH / "sites").exists() else FRONTEND_PUBLIC_PATH / "sites"
+if sites_dir.exists():
+    app.mount("/sites", StaticFiles(directory=str(sites_dir)), name="sites")
 
 
 @app.get("/health")
