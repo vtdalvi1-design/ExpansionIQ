@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import Dashboard from "./pages/Dashboard";
 import Header from "./components/Header";
 import Sidebar, { type WorkspacePage } from "./components/Sidebar";
+import Chatbot from "./components/Chatbot";
 import { api } from "./services/api";
 import type {
   BusinessAnalysisInput,
@@ -379,6 +380,7 @@ export default function App() {
           </Suspense>
         </main>
       </div>
+      <Chatbot />
     </div>
   );
 }
